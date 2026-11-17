@@ -245,17 +245,17 @@ fn preferences(app: &mut MaterialCraftApp, ctx: &egui::Context) {
 
 fn about(app: &mut MaterialCraftApp, ctx: &egui::Context) {
     let mut open = true;
-    modal(ctx, "about", tr("About MaterialCraft"), &mut open, vec2(400.0, 260.0), |ui| {
+    modal(ctx, "about", "About The AllCraft Material", &mut open, vec2(420.0, 260.0), |ui| {
         let tk = Tokens::get(ui.ctx());
         ui.vertical_centered(|ui| {
-            ui.label(RichText::new("MaterialCraft").size(22.0).strong().color(tk.accent));
+            ui.label(RichText::new("The AllCraft Material").size(22.0).strong().color(tk.accent));
             ui.label(format!("{} {}", tr("Version"), materialcraft_engine::VERSION));
             ui.add_space(6.0);
             ui.label(tr("Node-based procedural materials, built in pure Rust."));
-            ui.label(tr("An open-source Crafting App by the ArtCraft team and community."));
+            ui.label("Part of The AllCraft Studio open creative & 3D suite.");
             ui.add_space(6.0);
-            ui.hyperlink_to("getartcraft.com/apps/materialcraft", "https://getartcraft.com/apps/materialcraft");
-            ui.hyperlink_to("discord.gg/artcraft", "https://discord.gg/artcraft");
+            ui.hyperlink_to("The AllCraft Studio — the-allcraft.pages.dev", "https://the-allcraft.pages.dev");
+            ui.hyperlink_to("MaterialCraft on GitHub", "https://github.com/thepixopik/materialcraft");
             ui.add_space(6.0);
             ui.label(RichText::new("MIT OR Apache-2.0").size(11.0).color(tk.text_dim));
         });
@@ -305,7 +305,6 @@ fn home(app: &mut MaterialCraftApp, ctx: &egui::Context) {
     modal(ctx, "home", tr("Home"), &mut open, vec2(760.0, 470.0), |ui| {
         let tk = Tokens::get(ui.ctx());
         ui.horizontal_top(|ui| {
-            // Left rail: actions and links
             ui.vertical(|ui| {
                 ui.set_width(150.0);
                 if ui.add_enabled(free, crate::widgets::primary_button(ui, tr("New graph"))).clicked() {
@@ -318,15 +317,14 @@ fn home(app: &mut MaterialCraftApp, ctx: &egui::Context) {
                     crate::menus::invoke(app, ui.ctx(), "file.open");
                 }
                 ui.add_space(16.0);
-                ui.hyperlink_to(tr("Documentation"), "https://github.com/storytold/materialcraft#readme");
-                ui.hyperlink_to(tr("Community (Discord)"), "https://discord.gg/artcraft");
-                ui.hyperlink_to("getartcraft.com", "https://getartcraft.com/apps/materialcraft");
+                ui.hyperlink_to(tr("Documentation"), "https://github.com/thepixopik/materialcraft#readme");
+                ui.hyperlink_to("AllCraft Studio", "https://the-allcraft.pages.dev");
                 ui.add_space(16.0);
                 ui.checkbox(&mut app.ui.prefs.show_home, tr("Show at startup"));
             });
             ui.separator();
             ui.vertical(|ui| {
-                ui.label(RichText::new(tr("Welcome to MaterialCraft")).size(18.0).strong().color(tk.text_strong));
+                ui.label(RichText::new("Welcome to The AllCraft Material").size(18.0).strong().color(tk.text_strong));
                 ui.label(
                     RichText::new(tr(
                         "Build tileable materials from noises, patterns and filters, see them live in 2D and 3D, and export the maps for any engine.",
@@ -397,7 +395,6 @@ pub fn console(app: &mut MaterialCraftApp, ui: &mut Ui) {
             ui.label(console_line(line.clone(), if warning { tk.warning } else { tk.text }));
         }
 
-        // Placeholders for missing SBS nodes are already listed in the warnings, so they get one line
         let (failed, placeholders) = app.session.cook_failures();
         for (id, error) in failed {
             ui.label(console_line(format!("node {}: {error}", id.0), tk.danger));
@@ -426,7 +423,6 @@ pub fn history(app: &mut MaterialCraftApp, ui: &mut Ui) {
     });
 }
 
-/// The function parameter of a pixel/value processor: a button opening the function graph editor, and the function as JSON for copy and paste
 pub fn function_summary(app: &mut MaterialCraftApp, ui: &mut Ui, node: NodeId, param: &str, f: &FunctionGraph) {
     let tk = Tokens::get(ui.ctx());
     if ui.add(crate::widgets::primary_button(ui, &format!("{}  {}", icon::FLOW_ARROW, tr("Edit function graph...")))).clicked() {
@@ -457,7 +453,6 @@ pub fn function_summary(app: &mut MaterialCraftApp, ui: &mut Ui, node: NodeId, p
     });
 }
 
-/// Project formats offered by File ▸ Open.
 pub const OPEN_EXTS: &[&str] = &["sbs", "mcraft"];
 
 pub(crate) fn package_filters(open: bool, archive: bool) -> Vec<(&'static str, &'static [&'static str])> {
@@ -503,7 +498,6 @@ pub(crate) fn resource_filters(vector: bool) -> Vec<(String, &'static [&'static 
         .collect()
 }
 
-/// Import an asset into the active package without creating a graph node.
 pub fn import_resource(app: &mut MaterialCraftApp, ctx: &egui::Context, vector: bool) {
     import_resource_into(app, ctx, vector, "Resources");
 }
@@ -523,7 +517,6 @@ pub(crate) fn import_resource_into(app: &mut MaterialCraftApp, ctx: &egui::Conte
     crate::web_files::import_resource(ctx, app.session.document_id, vector, folder);
 }
 
-/// After a package opened with warnings (an SBS file using nodes MaterialCraft lacks, say), bring the Console forward
 pub fn after_open(app: &mut MaterialCraftApp) {
     let warning_count = app.session.load_warnings.len();
     if warning_count > 0 {
@@ -532,7 +525,6 @@ pub fn after_open(app: &mut MaterialCraftApp) {
     }
 }
 
-/// File menu actions that need a file dialog. Returns true when handled
 pub fn file_action(app: &mut MaterialCraftApp, ctx: &egui::Context, id: &str) -> bool {
     if matches!(id, "file.save" | "file.saveAs" | "file.saveCopyAs" | "file.importBitmap" | "file.importVector") && !app.session.has_package() {
         return true;
@@ -598,13 +590,11 @@ pub fn file_action(app: &mut MaterialCraftApp, ctx: &egui::Context, id: &str) ->
     }
 }
 
-/// Whether File ▸ Save writes straight to the package's path (a package opened from a URL has none to write to)
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn has_local_path(app: &MaterialCraftApp) -> bool {
     app.session.path.as_ref().is_some_and(|path| !path.contains("://"))
 }
 
-/// Open a package from a path (recent list, command line)
 #[cfg(not(target_arch = "wasm32"))]
 pub fn open_path(app: &mut MaterialCraftApp, path: &str) {
     open_path_now(app, path);

@@ -9,10 +9,11 @@ const CANVAS_ID: &str = "materialcraft_canvas";
 const LOADING_ID: &str = "materialcraft_loading";
 const STATUS_ID: &str = "materialcraft_status";
 const PROGRESS_ID: &str = "materialcraft_progress";
+const BAR_ID: &str = "mc_load_bar";
+const PCT_ID: &str = "mc_load_pct";
 /// Where `index.html` copies the SBS library's `resources/`, relative to the page
 const LIBRARY_URL: &str = "sbs";
-/// How long startup waits for the library files; a response that stalls would otherwise keep the
-/// loading screen up for good. Two minutes fits the 14 MB of bitmaps on a slow connection
+/// How long startup waits for the library files; two minutes fits the 14 MB of bitmaps on a slow connection
 const LIBRARY_DOWNLOAD_TIMEOUT_MS: i32 = 120_000;
 
 pub fn start() {
@@ -32,9 +33,9 @@ pub fn start() {
             match result {
                 Ok(()) => el.remove(),
                 Err(e) => {
-                    log::error!("MaterialCraft failed to start: {e}");
+                    log::error!("The AllCraft Material failed to start: {e}");
                     el.set_text_content(Some(&format!(
-                        "MaterialCraft failed to start: {e}. It needs a browser with WebGPU (current Chrome, Edge or Safari) or at least WebGL2."
+                        "The AllCraft Material failed to start: {e}. It needs a browser with WebGPU (current Chrome, Edge or Safari) or at least WebGL2."
                     )));
                 }
             }
@@ -43,12 +44,11 @@ pub fn start() {
 }
 
 async fn run(canvas: web_sys::HtmlCanvasElement) -> Result<(), String> {
-    // The WebAssembly has downloaded and compiled when this runs
-    step(0.3, "Downloading the material library…").await;
+    step(0.86, "Downloading procedural node library…").await;
     download_library().await;
-    step(0.5, "Preparing a new package…").await;
+    step(0.93, "Preparing PBR material package…").await;
     let session = materialcraft_engine::new_session();
-    step(0.8, "Starting the renderer…").await;
+    step(0.98, "Starting 3D & 2D GPU renderer…").await;
     let mut options = eframe::WebOptions::default();
     if query().contains("webgl")
         && let eframe::egui_wgpu::WgpuSetup::CreateNew(create) = &mut options.wgpu_options.wgpu_setup
@@ -71,15 +71,10 @@ async fn run(canvas: web_sys::HtmlCanvasElement) -> Result<(), String> {
         .map_err(|e| e.as_string().unwrap_or_else(|| format!("{e:?}")))
 }
 
-/// Fetch the SBS library files that ship beside the wasm (`index.html` copies them to
-/// [`LIBRARY_URL`]) before the first cook needs one. A file that fails to download, or is still
-/// downloading after [`LIBRARY_DOWNLOAD_TIMEOUT_MS`], is logged and reported by the nodes that use
-/// it; it doesn't stop startup.
 async fn download_library() {
     use materialcraft_formats::sbs::library;
     let Some(window) = web_sys::window() else { return };
 
-    // One deadline covers every request and body; aborting rejects whatever is still pending
     let controller = web_sys::AbortController::new().ok();
     let init = web_sys::RequestInit::new();
     init.set_signal(controller.as_ref().map(|c| c.signal()).as_ref());
@@ -88,7 +83,6 @@ async fn download_library() {
         .as_ref()
         .and_then(|abort| window.set_timeout_with_callback_and_timeout_and_arguments_0(abort.as_ref().unchecked_ref(), LIBRARY_DOWNLOAD_TIMEOUT_MS).ok());
 
-    // Start every fetch before awaiting its response
     let requests: Vec<_> = library::external_assets()
         .iter()
         .map(|relative| {
@@ -102,7 +96,6 @@ async fn download_library() {
         }
     }
 
-    // The closure must outlive the timer, so cancel the timer before dropping it
     if let Some(timer) = timer {
         window.clear_timeout_with_handle(timer);
     }
@@ -121,8 +114,6 @@ async fn fetch_bytes(request: wasm_bindgen_futures::JsFuture) -> Result<Vec<u8>,
     Ok(js_sys::Uint8Array::new(&buffer).to_vec())
 }
 
-/// Show a startup step on the loading screen and let the browser paint it before the next
-/// (blocking) step runs.
 async fn step(progress: f32, status: &str) {
     let Some(document) = web_sys::window().and_then(|w| w.document()) else { return };
     if let Some(el) = document.get_element_by_id(STATUS_ID) {
@@ -131,8 +122,14 @@ async fn step(progress: f32, status: &str) {
     if let Some(el) = document.get_element_by_id(PROGRESS_ID) {
         let _ = el.set_attribute("value", &progress.to_string());
     }
+    let pct = (progress * 100.0).round() as u32;
+    if let Some(bar) = document.get_element_by_id(BAR_ID).and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok()) {
+        let _ = bar.style().set_property("width", &format!("{pct}%"));
+    }
+    if let Some(pct_el) = document.get_element_by_id(PCT_ID) {
+        pct_el.set_text_content(Some(&format!("{pct}%")));
+    }
 
-    // A timer lets background tabs resume even without animation frames
     let promise = js_sys::Promise::new(&mut |resolve, _| {
         if let Some(w) = web_sys::window() {
             let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, 20);
@@ -141,10 +138,6 @@ async fn step(progress: f32, status: &str) {
     let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
-/// The app's shortcuts (Ctrl+S, Ctrl+O, Ctrl+D, F5…) would also trigger the browser's own
-/// actions; take them first. Copy, cut and paste stay with the browser, which turns them into
-/// the clipboard events egui reads. Shortcuts the browser reserves (Ctrl+N, Ctrl+T, Ctrl+W)
-/// never reach the page.
 fn capture_app_shortcuts() {
     let Some(window) = web_sys::window() else { return };
     let on_key = Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(|e: web_sys::KeyboardEvent| {
@@ -161,7 +154,6 @@ fn capture_app_shortcuts() {
         log::warn!("couldn't take over the browser's shortcuts: {e:?}");
     }
 
-    // The listener lives as long as the page
     on_key.forget();
 }
 
